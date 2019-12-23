@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <algorithm>
@@ -51,6 +50,11 @@ toSystemTimePoint(TimePoint t) {
 
 inline time_t toTimeT(TimePoint t) {
   return std::chrono::system_clock::to_time_t(toSystemTimePoint(t));
+}
+
+inline std::chrono::microseconds microsecondsSinceEpoch() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+    std::chrono::system_clock::now().time_since_epoch());
 }
 
 inline std::chrono::milliseconds millisecondsSinceEpoch() {
@@ -186,6 +190,10 @@ class TimeUtilGeneric {
    */
   virtual uint64_t msSinceEpoch() {
     return millisecondsSinceEpoch().count();
+  }
+
+  virtual uint64_t microsSinceEpoch() {
+    return microsecondsSinceEpoch().count();
   }
 };
 

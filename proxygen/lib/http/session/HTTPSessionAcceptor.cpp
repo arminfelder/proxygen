@@ -1,21 +1,18 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPDefaultSessionCodecFactory.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 
-using folly::AsyncSocket;
 using folly::SocketAddress;
-using std::list;
 using std::string;
 using std::unique_ptr;
 
@@ -24,14 +21,15 @@ namespace proxygen {
 const SocketAddress HTTPSessionAcceptor::unknownSocketAddress_("0.0.0.0", 0);
 
 HTTPSessionAcceptor::HTTPSessionAcceptor(const AcceptorConfiguration& accConfig)
-    : HTTPSessionAcceptor(accConfig, nullptr) {}
+    : HTTPSessionAcceptor(accConfig, nullptr) {
+}
 
 HTTPSessionAcceptor::HTTPSessionAcceptor(
-  const AcceptorConfiguration& accConfig,
-  std::shared_ptr<HTTPCodecFactory> codecFactory):
-    HTTPAcceptor(accConfig),
-    codecFactory_(codecFactory),
-    simpleController_(this) {
+    const AcceptorConfiguration& accConfig,
+    std::shared_ptr<HTTPCodecFactory> codecFactory)
+    : HTTPAcceptor(accConfig),
+      codecFactory_(codecFactory),
+      simpleController_(this) {
   if (!codecFactory_) {
     codecFactory_ =
         std::make_shared<HTTPDefaultSessionCodecFactory>(accConfig_);
@@ -62,12 +60,11 @@ void HTTPSessionAcceptor::onNewConnection(
     wangle::SecureTransportType,
     const wangle::TransportInfo& tinfo) {
 
-  unique_ptr<HTTPCodec> codec
-      = codecFactory_->getCodec(
-          nextProtocol,
-          TransportDirection::DOWNSTREAM,
-          // we assume if security protocol isn't empty, then it's TLS
-          !sock->getSecurityProtocol().empty());
+  unique_ptr<HTTPCodec> codec = codecFactory_->getCodec(
+      nextProtocol,
+      TransportDirection::DOWNSTREAM,
+      // we assume if security protocol isn't empty, then it's TLS
+      !sock->getSecurityProtocol().empty());
 
   if (!codec) {
     VLOG(2) << "codecFactory_ failed to provide codec";
@@ -95,13 +92,17 @@ void HTTPSessionAcceptor::onNewConnection(
   }
 
   auto sessionInfoCb = sessionInfoCb_ ? sessionInfoCb_ : this;
-  VLOG(4) << "Created new " << nextProtocol
-          << " session for peer " << *peerAddress;
+  VLOG(4) << "Created new " << nextProtocol << " session for peer "
+          << *peerAddress;
   HTTPDownstreamSession* session =
-    new HTTPDownstreamSession(getTransactionTimeoutSet(), std::move(sock),
-                              localAddress, *peerAddress,
-                              controller, std::move(codec), tinfo,
-                              sessionInfoCb);
+      new HTTPDownstreamSession(getTransactionTimeoutSet(),
+                                std::move(sock),
+                                localAddress,
+                                *peerAddress,
+                                controller,
+                                std::move(codec),
+                                tinfo,
+                                sessionInfoCb);
   if (accConfig_.maxConcurrentIncomingStreams) {
     session->setMaxConcurrentIncomingStreams(
         accConfig_.maxConcurrentIncomingStreams);
@@ -130,4 +131,4 @@ size_t HTTPSessionAcceptor::dropIdleConnections(size_t num) {
   return downstreamConnectionManager_->dropIdleConnections(num);
 }
 
-} // proxygen
+} // namespace proxygen

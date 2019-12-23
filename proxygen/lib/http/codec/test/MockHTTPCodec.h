@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/portability/GMock.h>
@@ -91,6 +90,11 @@ class MockHTTPCodec: public HTTPCodec {
   }
 
   MOCK_METHOD1(generatePingRequest, size_t(folly::IOBufQueue&));
+  size_t generatePingRequest(folly::IOBufQueue& writeBuf,
+                             folly::Optional<uint64_t> /* data */) override {
+    return generatePingRequest(writeBuf);
+  }
+
   MOCK_METHOD2(generatePingReply, size_t(folly::IOBufQueue&,
                                          uint64_t));
   MOCK_METHOD1(generateSettings, size_t(folly::IOBufQueue&));
@@ -131,7 +135,7 @@ class MockHTTPCodec: public HTTPCodec {
     addPriorityNodes,
     size_t(PriorityQueue&, folly::IOBufQueue&, uint8_t));
   MOCK_CONST_METHOD1(mapPriorityToDependency, HTTPCodec::StreamID(uint8_t));
- };
+};
 
 class MockHTTPCodecCallback: public HTTPCodec::Callback {
  public:
@@ -149,12 +153,18 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
                          std::unique_ptr<HTTPMessage> msg) override {
     onHeadersComplete(stream, std::shared_ptr<HTTPMessage>(msg.release()));
   }
-  MOCK_METHOD3(onBody, void(HTTPCodec::StreamID,
-                            std::shared_ptr<folly::IOBuf>, uint8_t));
+  MOCK_METHOD3(onBody,
+               void(HTTPCodec::StreamID,
+                    std::shared_ptr<folly::IOBuf>,
+                    uint8_t));
   void onBody(HTTPCodec::StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain, uint16_t padding) override {
-    onBody(stream, std::shared_ptr<folly::IOBuf>(chain.release()), padding);
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t padding) override {
+    onBody(stream,
+           std::shared_ptr<folly::IOBuf>(chain.release()),
+           padding);
   }
+  MOCK_METHOD2(onUnframedBodyStarted, void(HTTPCodec::StreamID, uint64_t));
   MOCK_METHOD2(onChunkHeader, void(HTTPCodec::StreamID, size_t));
   MOCK_METHOD1(onChunkComplete, void(HTTPCodec::StreamID));
   MOCK_METHOD2(onTrailersComplete, void(HTTPCodec::StreamID,

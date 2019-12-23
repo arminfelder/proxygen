@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/io/IOBuf.h>
@@ -27,6 +26,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
 
  public:
   static const uint32_t kMaxHeaderTableSize = (1u << 16);
+  static const uint32_t kDefaultMaxOutstandingListSize = (1u << 8);
 
   explicit QPACKEncoder(bool huffman,
                         uint32_t tableSize=HPACK::kTableSize);
@@ -91,12 +91,16 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
     table_.setMinFreeForTesting(minFree);
   }
 
+  void setMaxNumOutstandingBlocks(uint32_t value);
+
  private:
   bool allowVulnerable() const {
     return numVulnerable_ < maxVulnerable_;
   }
 
   bool shouldIndex(const HPACKHeader& header) const;
+
+  bool dynamicReferenceAllowed() const;
 
   void encodeControl(const HPACKHeader& header);
 
@@ -165,6 +169,8 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   uint32_t maxTableSize_{0};
   int64_t maxEncoderStreamBytes_{0};
   folly::IOBufQueue decoderIngress_{folly::IOBufQueue::cacheChainLength()};
+  uint32_t numOutstandingBlocks_{0};
+  uint32_t maxNumOutstandingBlocks_{kDefaultMaxOutstandingListSize};
 };
 
 }

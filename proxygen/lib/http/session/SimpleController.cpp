@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/session/SimpleController.h>
 
 #include <proxygen/lib/http/session/CodecErrorResponseHandler.h>
@@ -20,7 +19,8 @@ SimpleController::SimpleController(HTTPSessionAcceptor* acceptor)
 }
 
 HTTPTransactionHandler* SimpleController::getRequestHandler(
-  HTTPTransaction& txn, HTTPMessage* msg) {
+    HTTPTransaction& txn, HTTPMessage* msg) {
+  CHECK(acceptor_) << "Requires an acceptor, or override this method";
   return acceptor_->newHandler(txn, msg);
 }
 
@@ -33,34 +33,36 @@ HTTPTransactionHandler* SimpleController::getParseErrorHandler(
     return new CodecErrorResponseHandler(error.getCodecStatusCode());
   }
 
-  auto errorPage = acceptor_->getErrorPage(localAddress);
-  return createErrorHandler(error.hasHttpStatusCode() ?
-                            error.getHttpStatusCode() : 400,
-                            "Bad Request", errorPage);
+  auto errorPage = acceptor_ ? acceptor_->getErrorPage(localAddress) : nullptr;
+  return createErrorHandler(
+      error.hasHttpStatusCode() ? error.getHttpStatusCode() : 400,
+      "Bad Request",
+      errorPage);
 }
 
 HTTPTransactionHandler* SimpleController::getTransactionTimeoutHandler(
     HTTPTransaction* /*txn*/, const folly::SocketAddress& localAddress) {
 
-  auto errorPage = acceptor_->getErrorPage(localAddress);
+  auto errorPage = acceptor_ ? acceptor_->getErrorPage(localAddress) : nullptr;
   return createErrorHandler(408, "Client timeout", errorPage);
 }
 
-void SimpleController::attachSession(HTTPSessionBase* /*sess*/) {}
+void SimpleController::attachSession(HTTPSessionBase* /*sess*/) {
+}
 
-void SimpleController::detachSession(const HTTPSessionBase* /*sess*/) {}
+void SimpleController::detachSession(const HTTPSessionBase* /*sess*/) {
+}
 
 HTTPTransactionHandler* SimpleController::createErrorHandler(
     uint32_t statusCode,
     const std::string& statusMessage,
     const HTTPErrorPage* errorPage) {
 
-  return new HTTPDirectResponseHandler(statusCode,
-                                       statusMessage,
-                                       errorPage);
+  return new HTTPDirectResponseHandler(statusCode, statusMessage, errorPage);
 }
 
 std::chrono::milliseconds SimpleController::getGracefulShutdownTimeout() const {
-  return acceptor_->getGracefulShutdownTimeout();
+  return acceptor_ ? acceptor_->getGracefulShutdownTimeout() :
+    std::chrono::milliseconds(0);
 }
-}
+} // namespace proxygen

@@ -1,15 +1,15 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include "CurlClient.h"
 
 #include <iostream>
+#include <sys/stat.h>
 
 #include <folly/FileUtil.h>
 #include <folly/String.h>
@@ -17,8 +17,8 @@
 #include <folly/io/async/SSLOptions.h>
 #include <folly/portability/GFlags.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -36,28 +36,55 @@ CurlClient::CurlClient(EventBase* evb,
                        const string& inputFilename,
                        bool h2c,
                        unsigned short httpMajor,
-                       unsigned short httpMinor)
+                       unsigned short httpMinor,
+                       bool partiallyReliable)
     : evb_(evb),
       httpMethod_(httpMethod),
       url_(url),
       inputFilename_(inputFilename),
       h2c_(h2c),
       httpMajor_(httpMajor),
-      httpMinor_(httpMinor) {
+      httpMinor_(httpMinor),
+      partiallyReliable_(partiallyReliable) {
   if (proxy != nullptr) {
     proxy_ = std::make_unique<URL>(proxy->getUrl());
   }
 
-  headers.forEach([this] (const string& header, const string& val) {
-      request_.getHeaders().add(header, val);
-    });
+  outputStream_ = std::make_unique<std::ostream>(std::cout.rdbuf());
+  headers.forEach([this](const string& header, const string& val) {
+    request_.getHeaders().add(header, val);
+  });
+}
+
+bool CurlClient::saveResponseToFile(const std::string& outputFilename) {
+  std::streambuf* buf;
+  if (outputFilename.empty()) {
+    return false;
+  }
+  uint16_t tries = 0;
+  while (tries < std::numeric_limits<uint16_t>::max()) {
+    std::string suffix = (tries == 0) ? "" : folly::to<std::string>("_", tries);
+    auto filename = folly::to<std::string>(outputFilename, suffix);
+    struct stat statBuf;
+    if (stat(filename.c_str(), &statBuf) == -1) {
+      outputFile_ =
+          std::make_unique<ofstream>(filename, ios::out | ios::binary);
+      if (*outputFile_ && outputFile_->good()) {
+        buf = outputFile_->rdbuf();
+        outputStream_ = std::make_unique<std::ostream>(buf);
+        return true;
+      }
+    }
+    tries++;
+  }
+  return false;
 }
 
 HTTPHeaders CurlClient::parseHeaders(const std::string& headersString) {
   vector<StringPiece> headersList;
   HTTPHeaders headers;
   folly::split(",", headersString, headersList);
-  for (const auto& headerPair: headersList) {
+  for (const auto& headerPair : headersList) {
     vector<StringPiece> nv;
     folly::split('=', headerPair, nv);
     if (nv.size() > 0) {
@@ -80,7 +107,7 @@ void CurlClient::initializeSsl(const string& caPath,
                                const string& keyPath) {
   sslContext_ = std::make_shared<folly::SSLContext>();
   sslContext_->setOptions(SSL_OP_NO_COMPRESSION);
-  sslContext_->setCipherList(folly::ssl::SSLCommonOptions::kCipherList);
+  sslContext_->setCipherList(folly::ssl::SSLCommonOptions::ciphers());
   if (!caPath.empty()) {
     sslContext_->loadTrustedCertificates(caPath.c_str());
   }
@@ -88,22 +115,22 @@ void CurlClient::initializeSsl(const string& caPath,
     sslContext_->loadCertKeyPairFromFiles(certPath.c_str(), keyPath.c_str());
   }
   list<string> nextProtoList;
-  folly::splitTo<string>(',', nextProtos, std::inserter(nextProtoList,
-                                                        nextProtoList.begin()));
+  folly::splitTo<string>(
+      ',', nextProtos, std::inserter(nextProtoList, nextProtoList.begin()));
   sslContext_->setAdvertisedNextProtocols(nextProtoList);
   h2c_ = false;
 }
 
 void CurlClient::sslHandshakeFollowup(HTTPUpstreamSession* session) noexcept {
-  AsyncSSLSocket* sslSocket = dynamic_cast<AsyncSSLSocket*>(
-    session->getTransport());
+  AsyncSSLSocket* sslSocket =
+      dynamic_cast<AsyncSSLSocket*>(session->getTransport());
 
   const unsigned char* nextProto = nullptr;
   unsigned nextProtoLength = 0;
   sslSocket->getSelectedNextProtocol(&nextProto, &nextProtoLength);
   if (nextProto) {
-    VLOG(1) << "Client selected next protocol " <<
-      string((const char*)nextProto, nextProtoLength);
+    VLOG(1) << "Client selected next protocol "
+            << string((const char*)nextProto, nextProtoLength);
   } else {
     VLOG(1) << "Client did not select a next protocol";
   }
@@ -155,11 +182,15 @@ void CurlClient::sendRequest(HTTPTransaction* txn) {
     request_.dumpMessage(4);
   }
 
+  if (partiallyReliable_) {
+    request_.setPartiallyReliable();
+  }
+
   txn_->sendHeaders(request_);
 
   if (httpMethod_ == HTTPMethod::POST) {
-    inputFile_ = std::make_unique<ifstream>(
-        inputFilename_, ios::in | ios::binary);
+    inputFile_ =
+        std::make_unique<ifstream>(inputFilename_, ios::in | ios::binary);
     sendBodyFromFile();
   } else {
     txn_->sendEOM();
@@ -186,9 +217,18 @@ void CurlClient::sendBodyFromFile() {
   }
 }
 
+void CurlClient::printMessageImpl(proxygen::HTTPMessage* msg,
+                                  const std::string& tag) {
+  if (!loggingEnabled_) {
+    return;
+  }
+  cout << tag;
+  msg->dumpMessage(10);
+}
+
 void CurlClient::connectError(const folly::AsyncSocketException& ex) {
-  LOG_IF(ERROR, loggingEnabled_) << "Coudln't connect to "
-                                 << url_.getHostAndPort() << ":" << ex.what();
+  LOG_IF(ERROR, loggingEnabled_)
+      << "Coudln't connect to " << url_.getHostAndPort() << ":" << ex.what();
 }
 
 void CurlClient::setTransaction(HTTPTransaction*) noexcept {
@@ -199,25 +239,19 @@ void CurlClient::detachTransaction() noexcept {
 
 void CurlClient::onHeadersComplete(unique_ptr<HTTPMessage> msg) noexcept {
   response_ = std::move(msg);
-  if (!loggingEnabled_) {
-    return;
-  }
-  cout << response_->getStatusCode() << " "
-       << response_->getStatusMessage() << endl;
-  response_->getHeaders().forEach([&](const string& header, const string& val) {
-    cout << header << ": " << val << endl;
-  });
+  printMessageImpl(response_.get());
 }
 
 void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
   if (!loggingEnabled_) {
     return;
   }
+  CHECK(outputStream_);
   if (chain) {
     const IOBuf* p = chain.get();
     do {
-      cout.write((const char*)p->data(), p->length());
-      cout.flush();
+      outputStream_->write((const char*)p->data(), p->length());
+      outputStream_->flush();
       p = p->next();
     } while (p != chain.get());
   }
@@ -252,6 +286,14 @@ void CurlClient::onEgressResumed() noexcept {
   }
 }
 
+void CurlClient::onPushedTransaction(
+    proxygen::HTTPTransaction* pushedTxn) noexcept {
+  //
+  pushTxnHandlers_.emplace_back(std::make_unique<CurlPushHandler>(this));
+  pushedTxn->setHandler(pushTxnHandlers_.back().get());
+  // Add implementation of the push transaction reception here
+}
+
 const string& CurlClient::getServerName() const {
   const string& res = request_.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST);
   if (res.empty()) {
@@ -260,4 +302,41 @@ const string& CurlClient::getServerName() const {
   return res;
 }
 
-}  // namespace CurlService
+// CurlPushHandler methods
+void CurlClient::CurlPushHandler::setTransaction(
+    proxygen::HTTPTransaction* txn) noexcept {
+  LOG_IF(INFO, parent_->loggingEnabled_) << "Received pushed transaction";
+  pushedTxn_ = txn;
+}
+
+void CurlClient::CurlPushHandler::detachTransaction() noexcept {
+  LOG_IF(INFO, parent_->loggingEnabled_) << "Detached pushed transaction";
+}
+
+void CurlClient::CurlPushHandler::onHeadersComplete(
+    std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {
+  if (!seenOnHeadersComplete_) {
+    seenOnHeadersComplete_ = true;
+    promise_ = std::move(msg);
+    parent_->printMessageImpl(promise_.get(), "[PP] ");
+  } else {
+    response_ = std::move(msg);
+    parent_->printMessageImpl(response_.get(), "[PR] ");
+  }
+}
+
+void CurlClient::CurlPushHandler::onBody(
+    std::unique_ptr<folly::IOBuf> chain) noexcept {
+  parent_->onBody(std::move(chain));
+}
+
+void CurlClient::CurlPushHandler::onEOM() noexcept {
+  LOG_IF(INFO, parent_->loggingEnabled_) << "Got PushTxn EOM";
+}
+
+void CurlClient::CurlPushHandler::onError(
+    const proxygen::HTTPException& error) noexcept {
+  parent_->onError(error);
+}
+
+} // namespace CurlService

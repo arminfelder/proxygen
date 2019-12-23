@@ -1,22 +1,22 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 
 using namespace proxygen;
 
-class EgressStateMachineFixture: public ::testing::Test {
+class EgressStateMachineFixture : public ::testing::Test {
  public:
-  EgressStateMachineFixture(): instance_(
-    HTTPTransactionEgressSM::getNewInstance()) {}
+  EgressStateMachineFixture()
+      : instance_(HTTPTransactionEgressSM::getNewInstance()) {
+  }
 
   void follow(HTTPTransactionEgressSM::Event e) {
     EXPECT_TRUE(HTTPTransactionEgressSM::transit(instance_, e));
@@ -25,14 +25,16 @@ class EgressStateMachineFixture: public ::testing::Test {
   void fail(HTTPTransactionEgressSM::Event e) {
     EXPECT_FALSE(HTTPTransactionEgressSM::transit(instance_, e));
   }
+
  private:
   HTTPTransactionEgressSM::State instance_;
 };
 
-class IngressStateMachineFixture: public ::testing::Test {
+class IngressStateMachineFixture : public ::testing::Test {
  public:
-  IngressStateMachineFixture():
-      instance_(HTTPTransactionIngressSM::getNewInstance()) {}
+  IngressStateMachineFixture()
+      : instance_(HTTPTransactionIngressSM::getNewInstance()) {
+  }
 
   void follow(HTTPTransactionIngressSM::Event e) {
     EXPECT_TRUE(HTTPTransactionIngressSM::transit(instance_, e));
@@ -41,6 +43,7 @@ class IngressStateMachineFixture: public ::testing::Test {
   void fail(HTTPTransactionIngressSM::Event e) {
     EXPECT_FALSE(HTTPTransactionIngressSM::transit(instance_, e));
   }
+
  private:
   HTTPTransactionIngressSM::State instance_;
 };

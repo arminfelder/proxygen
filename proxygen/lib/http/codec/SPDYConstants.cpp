@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 
 namespace proxygen { namespace spdy {
@@ -16,18 +15,19 @@ GoawayStatusCode errorCodeToGoaway(ErrorCode code) {
     case ErrorCode::NO_ERROR: return GOAWAY_OK;
     case ErrorCode::INTERNAL_ERROR: return GOAWAY_INTERNAL_ERROR;
     case ErrorCode::FLOW_CONTROL_ERROR: return GOAWAY_FLOW_CONTROL_ERROR;
-    case ErrorCode::PROTOCOL_ERROR:       break;
-    case ErrorCode::SETTINGS_TIMEOUT:     break;
-    case ErrorCode::STREAM_CLOSED:        break;
-    case ErrorCode::FRAME_SIZE_ERROR:     break;
-    case ErrorCode::REFUSED_STREAM:       break;
-    case ErrorCode::CANCEL:               break;
-    case ErrorCode::COMPRESSION_ERROR:    break;
-    case ErrorCode::CONNECT_ERROR:        break;
-    case ErrorCode::ENHANCE_YOUR_CALM:    break;
-    case ErrorCode::INADEQUATE_SECURITY:  break;
-    case ErrorCode::HTTP_1_1_REQUIRED:    break;
-    case ErrorCode::_SPDY_INVALID_STREAM: break;
+    case ErrorCode::PROTOCOL_ERROR:           break;
+    case ErrorCode::SETTINGS_TIMEOUT:         break;
+    case ErrorCode::STREAM_CLOSED:            break;
+    case ErrorCode::FRAME_SIZE_ERROR:         break;
+    case ErrorCode::REFUSED_STREAM:           break;
+    case ErrorCode::CANCEL:                   break;
+    case ErrorCode::COMPRESSION_ERROR:        break;
+    case ErrorCode::CONNECT_ERROR:            break;
+    case ErrorCode::ENHANCE_YOUR_CALM:        break;
+    case ErrorCode::INADEQUATE_SECURITY:      break;
+    case ErrorCode::HTTP_1_1_REQUIRED:        break;
+    case ErrorCode::_SPDY_INVALID_STREAM:     break;
+    case ErrorCode::_HTTP3_PR_INVALID_OFFSET: break;
   }
   return GOAWAY_PROTOCOL_ERROR;
 }
@@ -48,6 +48,7 @@ ResetStatusCode errorCodeToReset(ErrorCode code) {
     case ErrorCode::ENHANCE_YOUR_CALM: break;
     case ErrorCode::INADEQUATE_SECURITY: return RST_INVALID_CREDENTIALS;
     case ErrorCode::HTTP_1_1_REQUIRED: break;
+    case ErrorCode::_HTTP3_PR_INVALID_OFFSET: break;
     case ErrorCode::_SPDY_INVALID_STREAM: return RST_INVALID_STREAM;
   }
   return RST_PROTOCOL_ERROR;
@@ -112,7 +113,6 @@ folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
     case proxygen::SettingsId::THRIFT_CHANNEL_ID_DEPRECATED:
     case proxygen::SettingsId::THRIFT_CHANNEL_ID:
       return folly::none;
-    case proxygen::SettingsId::_HQ_NUM_PLACEHOLDERS:
     case proxygen::SettingsId::_HQ_QPACK_BLOCKED_STREAMS:
     case proxygen::SettingsId::SETTINGS_HTTP_CERT_AUTH:
       return folly::none;

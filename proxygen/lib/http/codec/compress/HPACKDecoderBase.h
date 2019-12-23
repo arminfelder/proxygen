@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2018-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
@@ -54,10 +53,15 @@ class HPACKDecoderBase {
       HeaderCodec::Type type,
       HPACK::StreamingCallback* streamingCb,
       uint32_t compressedSize,
+      uint32_t compressedBlockSize,
       uint32_t emittedSize,
       bool acknowledge = false);
 
-  void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf, HeaderTable& table);
+  void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf,
+                             HeaderTable& table,
+                             /* used to determine whether or not we log
+                                certain events */
+                             bool isQpack = false);
 
   HPACK::DecodeError err_{HPACK::DecodeError::NONE};
   uint32_t maxTableSize_;

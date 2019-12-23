@@ -1,22 +1,17 @@
 /*
- *  Copyright (c) 2018-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/codec/compress/QPACKStaticHeaderTable.h>
 
 #include <folly/Indestructible.h>
 
 #include <glog/logging.h>
-#include <list>
 
-using std::list;
-using std::string;
-using std::vector;
 
 namespace {
 
@@ -145,7 +140,7 @@ namespace proxygen {
  * sed -e's/^/HTTP_HEADER_/g' -e's/-/_/g' -e's/:/COLON_/g'
  */
 bool QPACKStaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
-    HTTPHeaderCode headerCode) {
+    HTTPHeaderCode /*headerCode*/) {
   LOG(FATAL) << __func__ << " not supported for QPACK";
   return false;
 }

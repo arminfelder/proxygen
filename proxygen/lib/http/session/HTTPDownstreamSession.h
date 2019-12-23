@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <proxygen/lib/http/session/HTTPSession.h>
@@ -15,7 +14,7 @@
 namespace proxygen {
 
 class HTTPSessionStats;
-class HTTPDownstreamSession final: public HTTPSession {
+class HTTPDownstreamSession final : public HTTPSession {
  public:
   /**
    * @param sock       An open socket on which any applicable TLS handshaking
@@ -25,34 +24,42 @@ class HTTPDownstreamSession final: public HTTPSession {
    * @param codec      A codec with which to parse/generate messages in
    *                     whatever HTTP-like wire format this session needs.
    */
-  HTTPDownstreamSession(
-      const WheelTimerInstance& timeout,
-      folly::AsyncTransportWrapper::UniquePtr&& sock,
-      const folly::SocketAddress& localAddr,
-      const folly::SocketAddress& peerAddr,
-      HTTPSessionController* controller,
-      std::unique_ptr<HTTPCodec> codec,
-      const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback):
-    HTTPSession(timeout, std::move(sock), localAddr, peerAddr,
-                CHECK_NOTNULL(controller), std::move(codec), tinfo,
-                infoCallback) {
-      CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
+  HTTPDownstreamSession(const WheelTimerInstance& timeout,
+                        folly::AsyncTransportWrapper::UniquePtr&& sock,
+                        const folly::SocketAddress& localAddr,
+                        const folly::SocketAddress& peerAddr,
+                        HTTPSessionController* controller,
+                        std::unique_ptr<HTTPCodec> codec,
+                        const wangle::TransportInfo& tinfo,
+                        InfoCallback* infoCallback)
+      : HTTPSession(timeout,
+                    std::move(sock),
+                    localAddr,
+                    peerAddr,
+                    CHECK_NOTNULL(controller),
+                    std::move(codec),
+                    tinfo,
+                    infoCallback) {
+    CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
   }
 
   // allows using HTTPDownstreamSession with HHWheelTimer when it is not shared
-  HTTPDownstreamSession(
-      folly::HHWheelTimer* timer,
-      folly::AsyncTransportWrapper::UniquePtr&& sock,
-      const folly::SocketAddress& localAddr,
-      const folly::SocketAddress& peerAddr,
-      HTTPSessionController* controller,
-      std::unique_ptr<HTTPCodec> codec,
-      const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback):
-    HTTPDownstreamSession(WheelTimerInstance(timer), std::move(sock), localAddr,
-        peerAddr,CHECK_NOTNULL(controller), std::move(codec), tinfo,
-        infoCallback) {
+  HTTPDownstreamSession(folly::HHWheelTimer* timer,
+                        folly::AsyncTransportWrapper::UniquePtr&& sock,
+                        const folly::SocketAddress& localAddr,
+                        const folly::SocketAddress& peerAddr,
+                        HTTPSessionController* controller,
+                        std::unique_ptr<HTTPCodec> codec,
+                        const wangle::TransportInfo& tinfo,
+                        InfoCallback* infoCallback)
+      : HTTPDownstreamSession(WheelTimerInstance(timer),
+                              std::move(sock),
+                              localAddr,
+                              peerAddr,
+                              CHECK_NOTNULL(controller),
+                              std::move(codec),
+                              tinfo,
+                              infoCallback) {
   }
 
   void startNow() override;
@@ -70,7 +77,7 @@ class HTTPDownstreamSession final: public HTTPSession {
    * ensures that a handler is set for the transaction.
    */
   HTTPTransaction::Handler* getTransactionTimeoutHandler(
-    HTTPTransaction* txn) override;
+      HTTPTransaction* txn) override;
 
   /**
    * Invoked when headers have been sent.
@@ -80,11 +87,10 @@ class HTTPDownstreamSession final: public HTTPSession {
 
   bool allTransactionsStarted() const override;
 
-  bool onNativeProtocolUpgrade(
-    HTTPCodec::StreamID streamID, CodecProtocol protocol,
-    const std::string& protocolString,
-    HTTPMessage& msg) override;
-
+  bool onNativeProtocolUpgrade(HTTPCodec::StreamID streamID,
+                               CodecProtocol protocol,
+                               const std::string& protocolString,
+                               HTTPMessage& msg) override;
 
   // Upstream methods.  Can implement when servers support making request
   bool isDetachable(bool) const override {
@@ -125,7 +131,6 @@ class HTTPDownstreamSession final: public HTTPSession {
     LOG(FATAL) << __func__ << " is an upstream interface";
     return false;
   }
-
 };
 
-} // proxygen
+} // namespace proxygen

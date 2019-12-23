@@ -1,19 +1,16 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 
 #include <folly/io/async/DelayedDestruction.h>
 #include <string>
 
-using std::string;
-using std::vector;
 
 namespace proxygen {
 
@@ -30,7 +27,9 @@ void ByteEventTracker::absorb(ByteEventTracker&& other) {
 // from a callback without causing problems
 bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
                                          uint64_t bytesWritten) {
-  bool advanceEOM = false;
+  // update our local cache of the number of bytes written so far
+  DCHECK(bytesWritten >= bytesWritten_);
+  bytesWritten_ = bytesWritten;
 
   while (!byteEvents_.empty() &&
          (byteEvents_.front().byteOffset_ <= bytesWritten)) {
@@ -39,40 +38,40 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
     auto txn = event.getTransaction();
 
     switch (event.eventType_) {
-    case ByteEvent::FIRST_HEADER_BYTE:
-      txn->onEgressHeaderFirstByte();
-      break;
-    case ByteEvent::FIRST_BYTE:
-      txn->onEgressBodyFirstByte(event.byteOffset_);
-      break;
-    case ByteEvent::LAST_BYTE:
-      txn->onEgressBodyLastByte(event.byteOffset_);
-      if (callback_) {
-        callback_->onLastByteEvent(txn, event.byteOffset_, event.eomTracked_);
-      }
-      advanceEOM = true;
-      break;
-    case ByteEvent::TRACKED_BYTE:
-      txn->onEgressTrackedByte();
-      break;
-    case ByteEvent::PING_REPLY_SENT:
-      latency = event.getLatency();
-      if (callback_) {
-        callback_->onPingReplyLatency(latency);
-      }
-      break;
+      case ByteEvent::FIRST_HEADER_BYTE:
+        txn->onEgressHeaderFirstByte();
+        break;
+      case ByteEvent::FIRST_BYTE:
+        txn->onEgressBodyFirstByte();
+        break;
+      case ByteEvent::LAST_BYTE:
+        txn->onEgressBodyLastByte();
+        break;
+      case ByteEvent::TRACKED_BYTE:
+        txn->onEgressTrackedByte();
+        break;
+      case ByteEvent::PING_REPLY_SENT:
+        latency = event.getLatency();
+        if (callback_) {
+          callback_->onPingReplyLatency(latency);
+        }
+        break;
+      case ByteEvent::SECOND_TO_LAST_PACKET:
+        // we don't track the write flush, so do nothing...
+        break;
+    }
+
+    // deliver to the callback
+    if (callback_) {
+      callback_->onTxnByteEventWrittenToBuf(event);
     }
 
     VLOG(5) << " removing ByteEvent " << event;
     // explicitly remove from the list, in case delete event triggers a
     // callback that would absorb this ByteEventTracker.
-    event.listHook.unlink();
-    delete &event;
+    byteEvents_.pop_front_and_dispose([](ByteEvent* event) { delete event; });
   }
 
-  if (advanceEOM) {
-    eomEventProcessed();
-  }
   return self.use_count() == 1;
 }
 
@@ -80,27 +79,25 @@ size_t ByteEventTracker::drainByteEvents() {
   size_t numEvents = 0;
   // everything is dead from here on, let's just drop all extra refs to txns
   while (!byteEvents_.empty()) {
-    delete &byteEvents_.front();
+    byteEvents_.pop_front_and_dispose([](ByteEvent* event) { delete event; });
     ++numEvents;
   }
   return numEvents;
 }
 
-void ByteEventTracker::addLastByteEvent(
-    HTTPTransaction* txn,
-    uint64_t byteNo) noexcept {
+void ByteEventTracker::addLastByteEvent(HTTPTransaction* txn,
+                                        uint64_t byteNo) noexcept {
   VLOG(5) << " adding last byte event for " << byteNo;
-  TransactionByteEvent* event = new TransactionByteEvent(
-      byteNo, ByteEvent::LAST_BYTE, txn);
+  TransactionByteEvent* event =
+      new TransactionByteEvent(byteNo, ByteEvent::LAST_BYTE, txn);
   byteEvents_.push_back(*event);
 }
 
-void ByteEventTracker::addTrackedByteEvent(
-    HTTPTransaction* txn,
-    uint64_t byteNo) noexcept {
+void ByteEventTracker::addTrackedByteEvent(HTTPTransaction* txn,
+                                           uint64_t byteNo) noexcept {
   VLOG(5) << " adding tracked byte event for " << byteNo;
-  TransactionByteEvent* event = new TransactionByteEvent(
-      byteNo, ByteEvent::TRACKED_BYTE, txn);
+  TransactionByteEvent* event =
+      new TransactionByteEvent(byteNo, ByteEvent::TRACKED_BYTE, txn);
   byteEvents_.push_back(*event);
 }
 
@@ -136,9 +133,7 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
 void ByteEventTracker::addFirstBodyByteEvent(uint64_t offset,
                                              HTTPTransaction* txn) {
   byteEvents_.push_back(
-      *new TransactionByteEvent(
-          offset, ByteEvent::FIRST_BYTE,
-          txn));
+      *new TransactionByteEvent(offset, ByteEvent::FIRST_BYTE, txn));
 }
 
 void ByteEventTracker::addFirstHeaderByteEvent(uint64_t offset,
@@ -146,9 +141,7 @@ void ByteEventTracker::addFirstHeaderByteEvent(uint64_t offset,
   // onWriteSuccess() is called after the entire header has been written.
   // It does not catch partial write case.
   byteEvents_.push_back(
-      *new TransactionByteEvent(offset,
-                                ByteEvent::FIRST_HEADER_BYTE,
-                                txn));
+      *new TransactionByteEvent(offset, ByteEvent::FIRST_HEADER_BYTE, txn));
 }
 
-} // proxygen
+} // namespace proxygen

@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 
 #include <folly/Conv.h>
@@ -19,27 +18,26 @@ using std::unique_ptr;
 namespace proxygen {
 
 HTTPDirectResponseHandler::HTTPDirectResponseHandler(
-    unsigned statusCode, const std::string& statusMsg,
-    const HTTPErrorPage* errorPage):
-  txn_(nullptr),
-  errorPage_(errorPage),
-  statusMessage_(statusMsg),
-  statusCode_(statusCode),
-  headersSent_(false),
-  eomSent_(false),
-  forceConnectionClose_(true) {
+    unsigned statusCode,
+    const std::string& statusMsg,
+    const HTTPErrorPage* errorPage)
+    : txn_(nullptr),
+      errorPage_(errorPage),
+      statusMessage_(statusMsg),
+      statusCode_(statusCode),
+      headersSent_(false),
+      eomSent_(false),
+      forceConnectionClose_(true) {
 }
 
 HTTPDirectResponseHandler::~HTTPDirectResponseHandler() {
 }
 
-void
-HTTPDirectResponseHandler::setTransaction(HTTPTransaction* txn) noexcept {
+void HTTPDirectResponseHandler::setTransaction(HTTPTransaction* txn) noexcept {
   txn_ = txn;
 }
 
-void
-HTTPDirectResponseHandler::detachTransaction() noexcept {
+void HTTPDirectResponseHandler::detachTransaction() noexcept {
   delete this;
 }
 
@@ -60,14 +58,16 @@ void HTTPDirectResponseHandler::onHeadersComplete(
     response.getHeaders().add(HTTP_HEADER_CONNECTION, "close");
   }
   if (errorPage_) {
-    HTTPErrorPage::Page page = errorPage_->generate(0, statusCode_,
-        statusMessage_, nullptr, empty_string);
+    HTTPErrorPage::Page page = errorPage_->generate(
+        0, statusCode_, statusMessage_, nullptr, empty_string);
     VLOG(4) << "sending error page with type " << page.contentType;
     response.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, page.contentType);
     responseBody = std::move(page.content);
   }
-  response.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, folly::to<string>(
-    responseBody ? responseBody->computeChainDataLength() : 0));
+  response.getHeaders().add(
+      HTTP_HEADER_CONTENT_LENGTH,
+      folly::to<string>(responseBody ? responseBody->computeChainDataLength()
+                                     : 0));
   txn_->sendHeaders(response);
   if (responseBody) {
     txn_->sendBody(std::move(responseBody));
@@ -83,14 +83,14 @@ void HTTPDirectResponseHandler::onTrailers(
   VLOG(4) << "discarding request trailers";
 }
 
-void
-HTTPDirectResponseHandler::onEOM() noexcept {
+void HTTPDirectResponseHandler::onEOM() noexcept {
   eomSent_ = true;
   txn_->sendEOM();
 }
 
 void HTTPDirectResponseHandler::onUpgrade(
-    UpgradeProtocol /*protocol*/) noexcept {}
+    UpgradeProtocol /*protocol*/) noexcept {
+}
 
 void HTTPDirectResponseHandler::onError(const HTTPException& error) noexcept {
   if (error.getDirection() == HTTPException::Direction::INGRESS) {
@@ -114,4 +114,4 @@ void HTTPDirectResponseHandler::onError(const HTTPException& error) noexcept {
   }
 }
 
-} // proxygen
+} // namespace proxygen

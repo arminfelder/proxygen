@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 
 #include <folly/Indestructible.h>
@@ -29,11 +28,12 @@ HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
                                    HTTPTransactionIngressSMData::Event e) {
   using State = HTTPTransactionIngressSMData::State;
   using Event = HTTPTransactionIngressSMData::Event;
-  using TransitionTable = std::map<std::pair<State, Event>, State>;
 
-  static const folly::Indestructible<TransitionTable> transitions{
-    TransitionTable{
-    {{State::Start, Event::onHeaders}, State::HeadersReceived},
+  static const folly::Indestructible<TransitionTable<State, Event>> transitions{
+    TransitionTable<State, Event>{
+      static_cast<uint64_t>(State::NumStates),
+      static_cast<uint64_t>(Event::NumEvents),
+    {{{State::Start, Event::onHeaders}, State::HeadersReceived},
 
     // For HTTP receiving 100 response, then a regular response
     {{State::HeadersReceived, Event::onHeaders}, State::HeadersReceived},
@@ -69,16 +69,11 @@ HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
     {{State::UpgradeComplete, Event::onBody}, State::UpgradeComplete},
     {{State::UpgradeComplete, Event::onEOM}, State::EOMQueued},
 
-    {{State::EOMQueued, Event::eomFlushed}, State::ReceivingDone},
-    }
+    {{State::EOMQueued, Event::eomFlushed}, State::ReceivingDone}
+    }}
   };
 
-  auto const &it = transitions->find(std::make_pair(s, e));
-  if (it == transitions->end()) {
-    return std::make_pair(s, false);
-  }
-
-  return std::make_pair(it->second, true);
+  return transitions->find(s, e);
 }
 
 std::ostream& operator<<(std::ostream& os,
@@ -114,6 +109,9 @@ std::ostream& operator<<(std::ostream& os,
     case HTTPTransactionIngressSMData::State::ReceivingDone:
       os << "ReceivingDone";
       break;
+    case HTTPTransactionIngressSMData::State::NumStates:
+      CHECK(false) << "Bad state";
+      break;
   }
 
   return os;
@@ -146,9 +144,12 @@ std::ostream& operator<<(std::ostream& os,
     case HTTPTransactionIngressSMData::Event::eomFlushed:
       os << "eomFlushed";
       break;
+    case HTTPTransactionIngressSMData::Event::NumEvents:
+      CHECK(false) << "Bad event";
+      break;
   }
 
   return os;
 }
 
-}
+} // namespace proxygen

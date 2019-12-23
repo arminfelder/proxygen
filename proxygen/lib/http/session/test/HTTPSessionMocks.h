@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/portability/GMock.h>
@@ -19,6 +18,7 @@
 
 #define GMOCK_NOEXCEPT_METHOD0(m, F) GMOCK_METHOD0_(, noexcept, , m, F)
 #define GMOCK_NOEXCEPT_METHOD1(m, F) GMOCK_METHOD1_(, noexcept, , m, F)
+#define GMOCK_NOEXCEPT_METHOD2(m, F) GMOCK_METHOD2_(, noexcept, , m, F)
 
 namespace proxygen {
 
@@ -80,7 +80,7 @@ class HTTPHandlerBase {
     }
   }
 
-  void sendBodyWithLastByteTracking(uint32_t content_length) {
+  void sendBodyWithLastByteFlushedTracking(uint32_t content_length) {
     txn_->setLastByteFlushedTrackingEnabled(true);
     sendBody(content_length);
   }
@@ -169,6 +169,15 @@ class MockHTTPHandler
   }
   GMOCK_NOEXCEPT_METHOD1(onBody, void(std::shared_ptr<folly::IOBuf> chain));
 
+  void onBodyWithOffset(uint64_t bodyOffset,
+                        std::unique_ptr<folly::IOBuf> chain) noexcept override {
+    onBodyWithOffset(bodyOffset,
+                     std::shared_ptr<folly::IOBuf>(chain.release()));
+  }
+  GMOCK_NOEXCEPT_METHOD2(onBodyWithOffset,
+                         void(uint64_t bodyOffset,
+                              std::shared_ptr<folly::IOBuf> chain));
+
   GMOCK_NOEXCEPT_METHOD1(onChunkHeader, void(size_t length));
 
   GMOCK_NOEXCEPT_METHOD0(onChunkComplete, void());
@@ -196,6 +205,10 @@ class MockHTTPHandler
 
   GMOCK_NOEXCEPT_METHOD1(onExTransaction, void(HTTPTransaction*));
 
+  GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
+
+  GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
+
   void expectTransaction(std::function<void(HTTPTransaction* txn)> callback) {
     EXPECT_CALL(*this, setTransaction(testing::_))
         .WillOnce(testing::Invoke(callback))
@@ -207,9 +220,13 @@ class MockHTTPHandler
         .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &txn_));
   }
 
-  void expectPushedTransaction(HTTPTransaction** pTxn = nullptr) {
+  void expectPushedTransaction(HTTPTransactionHandler* handler=nullptr) {
     EXPECT_CALL(*this, onPushedTransaction(testing::_))
-        .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &pushedTxn_));
+      .WillOnce(testing::Invoke([handler] (HTTPTransaction* txn) {
+            if (handler) {
+              txn->setHandler(handler);
+            }
+          }));
   }
 
   void expectHeaders(std::function<void()> callback = std::function<void()>()) {
@@ -258,15 +275,17 @@ class MockHTTPHandler
 
   void expectBody(std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onBody(testing::_))
+      EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_))
           .WillOnce(testing::InvokeWithoutArgs(callback));
     } else {
-      EXPECT_CALL(*this, onBody(testing::_));
+      EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_));
     }
   }
 
-  void expectBody(std::function<void(std::shared_ptr<folly::IOBuf>)> callback) {
-    EXPECT_CALL(*this, onBody(testing::_)).WillOnce(testing::Invoke(callback));
+  void expectBody(
+      std::function<void(uint64_t, std::shared_ptr<folly::IOBuf>)> callback) {
+    EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_))
+        .WillOnce(testing::Invoke(callback));
   }
 
   void expectChunkComplete(
@@ -360,6 +379,10 @@ class MockHTTPPushHandler
 
   GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
 
+  GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
+
+  GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
+
   void sendPushHeaders(const std::string& path,
                        const std::string& host,
                        uint32_t content_length,
@@ -409,7 +432,7 @@ class MockUpstreamController : public HTTPUpstreamSessionController {
 };
 
 ACTION_P(ExpectString, expected) {
-  std::string bodystr((const char*)arg0->data(), arg0->length());
+  std::string bodystr((const char*)arg1->data(), arg1->length());
   EXPECT_EQ(bodystr, expected);
 }
 
@@ -457,13 +480,18 @@ class DummyHTTPSessionStats : public HTTPSessionStats {
   void recordTransactionStalled() noexcept override{};
   void recordSessionStalled() noexcept override{};
 
+  void recordPresendIOSplit() noexcept override{};
+  void recordPresendExceedLimit() noexcept override{};
   void recordTTLBAExceedLimit() noexcept override{};
-  void recordTTLBAIOBSplitByEom() noexcept override{};
   void recordTTLBANotFound() noexcept override{};
   void recordTTLBAReceived() noexcept override{};
   void recordTTLBATimeout() noexcept override{};
-  void recordTTLBAEomPassed() noexcept override{};
   void recordTTLBATracked() noexcept override{};
+  void recordTTBTXExceedLimit() noexcept override{};
+  void recordTTBTXReceived() noexcept override{};
+  void recordTTBTXTimeout() noexcept override{};
+  void recordTTBTXNotFound() noexcept override{};
+  void recordTTBTXTracked() noexcept override{};
 };
 
 class MockHTTPSessionStats : public DummyHTTPSessionStats {

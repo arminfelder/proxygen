@@ -1,24 +1,22 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
-#include <map>
 #include <iosfwd>
+#include <map>
 #include <proxygen/lib/utils/StateMachine.h>
 
 namespace proxygen {
 
 class HTTPTransactionIngressSMData {
  public:
-
-  enum class State: uint8_t {
+  enum class State : uint8_t {
     Start,
     HeadersReceived,
     RegularBodyReceived,
@@ -29,9 +27,12 @@ class HTTPTransactionIngressSMData {
     UpgradeComplete,
     EOMQueued,
     ReceivingDone,
+
+    // Must be last
+    NumStates
   };
 
-  enum class Event: uint8_t {
+  enum class Event : uint8_t {
     // API accessible transitions
     onHeaders,
     onBody,
@@ -42,6 +43,9 @@ class HTTPTransactionIngressSMData {
     onEOM,
     // Internal state transitions
     eomFlushed,
+
+    // Must be last
+    NumEvents
   };
 
   static State getInitialState() {
@@ -63,4 +67,4 @@ std::ostream& operator<<(std::ostream& os,
 
 using HTTPTransactionIngressSM = StateMachine<HTTPTransactionIngressSMData>;
 
-}
+} // namespace proxygen

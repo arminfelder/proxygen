@@ -1,11 +1,9 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #include <proxygen/httpserver/HTTPServer.h>
@@ -16,14 +14,11 @@
 #include <proxygen/httpserver/HTTPServerAcceptor.h>
 #include <proxygen/httpserver/SignalHandler.h>
 #include <proxygen/httpserver/filters/RejectConnectFilter.h>
-#include <proxygen/httpserver/filters/ZlibServerFilter.h>
+#include <proxygen/httpserver/filters/CompressionFilter.h>
 #include <wangle/ssl/SSLContextManager.h>
 
-using folly::AsyncServerSocket;
-using folly::EventBase;
 using folly::EventBaseManager;
 using folly::IOThreadPoolExecutor;
-using folly::SocketAddress;
 using folly::ThreadPoolExecutor;
 
 namespace proxygen {
@@ -69,12 +64,13 @@ HTTPServer::HTTPServer(HTTPServerOptions options):
   // Add Content Compression filter (gzip), if needed. Should be
   // final filter
   if (options_->enableContentCompression) {
+    CompressionFilterFactory::Options opts;
+    opts.minimumCompressionSize = options_->contentCompressionMinimumSize;
+    opts.zlibCompressionLevel = options_->contentCompressionLevel;
+    opts.compressibleContentTypes = options_->contentCompressionTypes;
     options_->handlerFactories.insert(
         options_->handlerFactories.begin(),
-        std::make_unique<ZlibServerFilterFactory>(
-          options_->contentCompressionLevel,
-          options_->contentCompressionMinimumSize,
-          options_->contentCompressionTypes));
+        std::make_unique<CompressionFilterFactory>(opts));
   }
 }
 
@@ -155,7 +151,7 @@ void HTTPServer::start(std::function<void()> onSuccess,
         bootstrap_[i].bind(addresses_[i].address);
       }
     }
-  } catch (const std::exception& ex) {
+  } catch (const std::exception&) {
     stop();
 
     if (onError) {

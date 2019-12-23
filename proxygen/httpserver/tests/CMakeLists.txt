@@ -1,0 +1,18 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+proxygen_add_test(TARGET HTTPServerTests
+  SOURCES
+    HTTPServerTest.cpp
+    RequestHandlerAdaptorTest.cpp
+  DEPENDS
+    proxygen
+    proxygenhttpserver
+    proxygencurl
+    testmain
+    Boost::filesystem
+    Boost::regex
+)

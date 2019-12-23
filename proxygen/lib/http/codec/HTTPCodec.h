@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/Portability.h>
@@ -131,6 +130,16 @@ class HTTPCodec {
                         uint16_t padding) = 0;
 
     /**
+     * Called when DATA frame with length 0 headers arrives.
+     *
+     * @param stream        The stream ID
+     * @param streamOffset  Stream offset at which the body starts.
+     */
+    virtual void onUnframedBodyStarted(StreamID /* stream */,
+                                       uint64_t /* streamOffset */) {
+    }
+
+    /**
      * Called for each HTTP chunk header.
      *
      * onChunkHeader() will be called when the chunk header is received.  As
@@ -224,17 +233,17 @@ class HTTPCodec {
 
     /**
      * Called upon receipt of a ping request
-     * @param uniqueID  Unique identifier for the ping
-     * @note Not all protocols have pings.  SPDY does, but HTTP/1.1 doesn't.
+     * @param data attached to the ping request
+     * @note Not all protocols have pings.HTTP/2 does, but HTTP/1.1 doesn't.
      */
-    virtual void onPingRequest(uint64_t /* uniqueID */) {}
+    virtual void onPingRequest(uint64_t /* data */) {}
 
     /**
      * Called upon receipt of a ping reply
-     * @param uniqueID  Unique identifier for the ping
-     * @note Not all protocols have pings.  SPDY does, but HTTP/1.1 doesn't.
+     * @param data data attached to the ping reply
+     * @note Not all protocols have pings. HTTP/2 does, but HTTP/1.1 doesn't.
      */
-    virtual void onPingReply(uint64_t /* uniqueID */) {}
+    virtual void onPingReply(uint64_t /* data */) {}
 
     /**
      * Called upon receipt of a window update, for protocols that support
@@ -573,7 +582,8 @@ class HTTPCodec {
    * If the protocol supports it, generate a ping message that the other
    * side should respond to.
    */
-  virtual size_t generatePingRequest(folly::IOBufQueue& /* writeBuf */) {
+  virtual size_t generatePingRequest(folly::IOBufQueue& /* writeBuf */,
+                          folly::Optional<uint64_t> /* data */ = folly::none) {
     return 0;
   }
 
@@ -583,7 +593,7 @@ class HTTPCodec {
    */
   virtual size_t generatePingReply(
       folly::IOBufQueue& /* writeBuf */,
-      uint64_t /* uniqueID */) { return 0; }
+      uint64_t /* data */) { return 0; }
 
   /**
    * Generate a settings message, if supported in the

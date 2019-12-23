@@ -1,3 +1,9 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 file(
     MAKE_DIRECTORY
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http
@@ -6,30 +12,19 @@ file(
 
 add_custom_command(
     OUTPUT ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.h
-    COMMAND
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.h.sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.txt
-        ${PROXYGEN_FBCODE_ROOT}
-        ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http
-    DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.h.sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.template.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.txt
-    COMMENT "Generating HTTPCommonHeaders.h"
-)
-add_custom_command(
     OUTPUT ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.cpp
     COMMAND
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.cpp.sh
+        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.sh
         ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.txt
         ${PROXYGEN_FBCODE_ROOT}
         ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http
-        ${PROXYGEN_GPERF}
     DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.h.sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.template.gperf
+        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.sh
         ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.txt
-    COMMENT "Generating HTTPCommonHeaders.cpp"
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils/gen_perfect_hash_table.sh
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils/perfect_hash_table_template.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils/perfect_hash_table_template.cpp.gperf
+    COMMENT "Generating HTTPCommonHeaders.h and HTTPCommonHeaders.cpp"
 )
 add_custom_command(
     OUTPUT
@@ -62,8 +57,41 @@ add_custom_target(
         ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceFieldType.cpp
 )
 
+if (BUILD_QUIC)
+    set(
+        HTTP3_SOURCES
+        ${HTTP3_SOURCES}
+        http/SynchronizedLruQuicPskCache.cpp
+        http/HTTP3ErrorCode.cpp
+        http/HQConnector.cpp
+        http/codec/HQControlCodec.cpp
+        http/codec/HQFramedCodec.cpp
+        http/codec/HQFramer.cpp
+        http/codec/HQStreamCodec.cpp
+        http/codec/HQUnidirectionalCodec.cpp
+        http/codec/HQUtils.cpp
+        http/codec/UnframedBodyOffsetTracker.cpp
+        http/session/HQDownstreamSession.cpp
+        http/session/HQSession.cpp
+        http/session/HQStreamBase.cpp
+        http/session/HQUnidirectionalCallbacks.cpp
+        http/session/HQUpstreamSession.cpp
+        transport/PersistentQuicPskCache.cpp
+    )
+  set(
+      HTTP3_DEPEND_LIBS
+      ${HTTP3_DEPEND_LIBS}
+      mvfst::mvfst_transport
+      mvfst::mvfst_client
+      mvfst::mvfst_server
+      mvfst::mvfst_codec_types
+      mvfst::mvfst_state_machine
+  )
+endif()
+
 add_library(
     proxygen STATIC
+    healthcheck/ServerHealthCheckerCallback.cpp
     http/codec/CodecProtocol.cpp
     http/codec/CodecUtil.cpp
     http/codec/compress/GzipHeaderCodec.cpp
@@ -106,12 +134,18 @@ add_library(
     http/codec/SPDYCodec.cpp
     http/codec/SPDYConstants.cpp
     http/codec/TransportDirection.cpp
+    http/connpool/ServerIdleSessionController.cpp
+    http/connpool/SessionHolder.cpp
+    http/connpool/SessionPool.cpp
+    http/connpool/ThreadIdleSessionController.cpp
     http/experimental/RFC1867.cpp
     http/HTTPConnector.cpp
+    http/HTTPConnectorWithFizz.cpp
     http/HTTPConstants.cpp
     http/HTTPException.cpp
     http/HTTPHeaders.cpp
     http/HTTPMessage.cpp
+    http/HTTPMessageFilters.cpp
     http/HTTPMethod.cpp
     http/ProxygenErrorEnum.cpp
     http/RFC2616.cpp
@@ -139,9 +173,13 @@ add_library(
     http/structuredheaders/StructuredHeadersEncoder.cpp
     http/structuredheaders/StructuredHeadersUtilities.cpp
     http/Window.cpp
+    pools/generators/FileServerListGenerator.cpp
+    pools/generators/ServerListGenerator.cpp
     services/RequestWorkerThread.cpp
     services/Service.cpp
     services/WorkerThread.cpp
+    statistics/ResourceStats.cpp
+    transport/PersistentFizzPskCache.cpp
     utils/AsyncTimeoutSet.cpp
     utils/Base64.cpp
     utils/CryptUtil.cpp
@@ -157,6 +195,7 @@ add_library(
     utils/ZlibStreamCompressor.cpp
     utils/ZlibStreamDecompressor.cpp
     utils/ZstdStreamDecompressor.cpp
+    ${HTTP3_SOURCES}
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.cpp
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceEventType.cpp
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceFieldType.cpp
@@ -177,14 +216,16 @@ target_compile_options(
     proxygen PRIVATE
     ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
+
 target_link_libraries(
     proxygen PUBLIC
     Folly::folly
     fizz::fizz
     wangle::wangle
-    zstd::zstd
+    zstd
     Boost::boost
     Boost::iostreams
+    ${HTTP3_DEPEND_LIBS}
 )
 
 # Install the headers, excluding unit testing related headers
@@ -215,3 +256,12 @@ install(
     DESTINATION lib
 )
 
+add_subdirectory(test)
+add_subdirectory(http/test)
+add_subdirectory(http/structuredheaders/test)
+add_subdirectory(http/connpool/test)
+add_subdirectory(http/codec/test)
+add_subdirectory(http/codec/compress/test)
+add_subdirectory(http/session/test)
+add_subdirectory(services/test)
+add_subdirectory(utils/test)

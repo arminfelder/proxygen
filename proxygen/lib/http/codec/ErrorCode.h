@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <cstdint>
@@ -41,6 +40,8 @@ enum class ErrorCode: uint8_t {
   // This code is *NOT* to be used outside of SPDYCodec. Delete this
   // when we deprecate SPDY.
   _SPDY_INVALID_STREAM = 100,
+  // Partially reliable bad offset code.
+  _HTTP3_PR_INVALID_OFFSET = 200,
 };
 
 extern const uint8_t kMaxErrorCode;

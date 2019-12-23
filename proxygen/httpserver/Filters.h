@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <proxygen/httpserver/RequestHandler.h>
@@ -123,6 +122,12 @@ class Filter : public RequestHandler, public ResponseHandler {
 
   ResponseHandler* newPushedResponse(PushHandler* handler) noexcept override {
     return downstream_->newPushedResponse(handler);
+  }
+
+  ResponseHandler* newExMessage(
+      ExMessageHandler* exHandler,
+      bool unidirectional) noexcept override {
+    return downstream_->newExMessage(exHandler, unidirectional);
   }
 
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {

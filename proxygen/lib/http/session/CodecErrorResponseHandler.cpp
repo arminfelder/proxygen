@@ -1,35 +1,32 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/session/CodecErrorResponseHandler.h>
 
 #include <folly/Conv.h>
 
 using folly::IOBuf;
-using std::string;
 using std::unique_ptr;
 
 namespace proxygen {
 
 CodecErrorResponseHandler::CodecErrorResponseHandler(ErrorCode /*statusCode*/)
-    : txn_(nullptr) {}
+    : txn_(nullptr) {
+}
 
 CodecErrorResponseHandler::~CodecErrorResponseHandler() {
 }
 
-void
-CodecErrorResponseHandler::setTransaction(HTTPTransaction* txn) noexcept {
+void CodecErrorResponseHandler::setTransaction(HTTPTransaction* txn) noexcept {
   txn_ = txn;
 }
 
-void
-CodecErrorResponseHandler::detachTransaction() noexcept {
+void CodecErrorResponseHandler::detachTransaction() noexcept {
   delete this;
 }
 
@@ -47,16 +44,16 @@ void CodecErrorResponseHandler::onTrailers(
   VLOG(4) << "discarding request trailers";
 }
 
-void
-CodecErrorResponseHandler::onEOM() noexcept {
+void CodecErrorResponseHandler::onEOM() noexcept {
 }
 
 void CodecErrorResponseHandler::onUpgrade(
-    UpgradeProtocol /*protocol*/) noexcept {}
+    UpgradeProtocol /*protocol*/) noexcept {
+}
 
 void CodecErrorResponseHandler::onError(const HTTPException& error) noexcept {
   VLOG(4) << "processing error " << error;
   txn_->sendAbort();
 }
 
-} // proxygen
+} // namespace proxygen

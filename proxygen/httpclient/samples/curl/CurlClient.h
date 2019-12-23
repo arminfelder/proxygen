@@ -1,25 +1,69 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
+#include <fstream>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/URL.h>
-#include <fstream>
 
 namespace CurlService {
 
-class CurlClient : public proxygen::HTTPConnector::Callback,
-                   public proxygen::HTTPTransactionHandler {
+class CurlClient
+    : public proxygen::HTTPConnector::Callback
+    , public proxygen::HTTPTransactionHandler {
+
+  class CurlPushHandler : public proxygen::HTTPTransactionHandler {
+
+   public:
+    explicit CurlPushHandler(CurlClient* parent) : parent_{parent} {
+    }
+
+    void setTransaction(proxygen::HTTPTransaction* /*txn*/) noexcept override;
+
+    void detachTransaction() noexcept override;
+
+    void onHeadersComplete(
+        std::unique_ptr<proxygen::HTTPMessage> /*msg*/) noexcept override;
+
+    void onBody(std::unique_ptr<folly::IOBuf> /*chain*/) noexcept override;
+
+    void onEOM() noexcept override;
+
+    void onError(const proxygen::HTTPException& /*error*/) noexcept override;
+
+    void onTrailers(
+        std::unique_ptr<proxygen::HTTPHeaders> /*trailers*/) noexcept override {
+    }
+
+    void onUpgrade(proxygen::UpgradeProtocol /*protocol*/) noexcept override {
+    }
+
+    void onEgressResumed() noexcept override {
+    }
+
+    void onEgressPaused() noexcept override {
+    }
+
+   private:
+    // hack around the ambiguous API
+    bool seenOnHeadersComplete_{false};
+    // the pushed transaction
+    proxygen::HTTPTransaction* pushedTxn_{nullptr};
+    // information about the request
+
+    std::unique_ptr<proxygen::HTTPMessage> promise_;
+    std::unique_ptr<proxygen::HTTPMessage> response_;
+    CurlClient* parent_;
+  };
 
  public:
   CurlClient(folly::EventBase* evb,
@@ -30,9 +74,12 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
              const std::string& inputFilename,
              bool h2c = false,
              unsigned short httpMajor = 1,
-             unsigned short httpMinor = 1);
+             unsigned short httpMinor = 1,
+             bool partiallyReliable = false);
 
   virtual ~CurlClient() = default;
+
+  bool saveResponseToFile(const std::string& outputFilename);
 
   static proxygen::HTTPHeaders parseHeaders(const std::string& headersString);
 
@@ -60,11 +107,15 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
   void onError(const proxygen::HTTPException& error) noexcept override;
   void onEgressPaused() noexcept override;
   void onEgressResumed() noexcept override;
+  void onPushedTransaction(
+      proxygen::HTTPTransaction* /* pushedTxn */) noexcept override;
 
   void sendRequest(proxygen::HTTPTransaction* txn);
 
   // Getters
-  folly::SSLContextPtr getSSLContext() { return sslContext_; }
+  folly::SSLContextPtr getSSLContext() {
+    return sslContext_;
+  }
 
   const std::string& getServerName() const;
 
@@ -78,8 +129,11 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
     loggingEnabled_ = enabled;
   }
 
-protected:
+ protected:
   void sendBodyFromFile();
+
+  void printMessageImpl(proxygen::HTTPMessage* msg,
+                        const std::string& tag = "");
 
   proxygen::HTTPTransaction* txn_{nullptr};
   folly::EventBase* evb_{nullptr};
@@ -96,8 +150,14 @@ protected:
   unsigned short httpMinor_;
   bool egressPaused_{false};
   std::unique_ptr<std::ifstream> inputFile_;
+  std::unique_ptr<std::ofstream> outputFile_;
+  std::unique_ptr<std::ostream> outputStream_;
+  bool partiallyReliable_{false};
 
   std::unique_ptr<proxygen::HTTPMessage> response_;
+  std::vector<std::unique_ptr<CurlPushHandler>> pushTxnHandlers_;
+
+  friend class CurlPushHandler;
 };
 
-} // CurlService namespace
+} // namespace CurlService

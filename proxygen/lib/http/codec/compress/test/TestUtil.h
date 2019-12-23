@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/io/IOBuf.h>
@@ -51,6 +50,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
     EXPECT_EQ(type, type_);
     encodes++;
     encodedBytesCompr += size.compressed;
+    encodedBytesComprBlock += size.compressedBlock;
     encodedBytesUncompr += size.uncompressed;
   }
 
@@ -75,6 +75,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
     encodes = 0;
     decodes = 0;
     encodedBytesCompr = 0;
+    encodedBytesComprBlock = 0;
     encodedBytesUncompr = 0;
     decodedBytesCompr = 0;
     decodedBytesUncompr = 0;
@@ -85,6 +86,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
   HeaderCodec::Type type_;
   uint32_t encodes{0};
   uint32_t encodedBytesCompr{0};
+  uint32_t encodedBytesComprBlock{0};
   uint32_t encodedBytesUncompr{0};
   uint32_t decodes{0};
   uint32_t decodedBytesCompr{0};

@@ -1,27 +1,22 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 
 #include <algorithm>
+#include <folly/ThreadLocal.h>
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h> // for prepareHeaders
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <iosfwd>
 
-using folly::IOBuf;
-using folly::io::Cursor;
 using proxygen::compress::Header;
-using proxygen::compress::HeaderPiece;
-using proxygen::compress::HeaderPieceList;
-using std::unique_ptr;
 using std::vector;
 
 namespace proxygen {
@@ -34,11 +29,13 @@ QPACKCodec::QPACKCodec()
 void QPACKCodec::recordCompressedSize(
   const QPACKEncoder::EncodeResult& encodeRes) {
   encodedSize_.compressed = 0;
+  encodedSize_.compressedBlock = 0;
   if (encodeRes.control) {
     encodedSize_.compressed += encodeRes.control->computeChainDataLength();
   }
   if (encodeRes.stream) {
-    encodedSize_.compressed += encodeRes.stream->computeChainDataLength();
+    encodedSize_.compressedBlock = encodeRes.stream->computeChainDataLength();
+    encodedSize_.compressed += encodedSize_.compressedBlock;
   }
   if (stats_) {
     stats_->recordEncode(Type::QPACK, encodedSize_);
@@ -49,9 +46,10 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
     vector<Header>& headers,
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes) noexcept {
-  auto prepared = compress::prepareHeaders(headers);
-  encodedSize_.uncompressed = prepared.second;
-  auto res = encoder_.encode(prepared.first, encodeHeadroom_, streamId,
+  folly::ThreadLocal<std::vector<HPACKHeader>> preparedTL;
+  auto& prepared = *preparedTL.get();
+  encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
+  auto res = encoder_.encode(prepared, encodeHeadroom_, streamId,
                              maxEncoderStreamBytes);
   recordCompressedSize(res);
   return res;

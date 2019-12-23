@@ -1,17 +1,16 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/io/async/SSLContext.h>
-#include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 
 namespace proxygen {
@@ -19,7 +18,7 @@ namespace proxygen {
 class HTTPSessionStats;
 class SPDYStats;
 
-class HTTPUpstreamSession final: public HTTPSession {
+class HTTPUpstreamSession final : public HTTPSession {
  public:
   /**
    * @param sock           An open socket on which any applicable TLS
@@ -41,18 +40,17 @@ class HTTPUpstreamSession final: public HTTPSession {
       InfoCallback* infoCallback,
       uint8_t maxVirtualPri = 0,
       std::shared_ptr<const PriorityMapFactory> priorityMapFactory =
-          std::shared_ptr<const PriorityMapFactory>()) :
-    HTTPSession(
-        timeout,
-        std::move(sock),
-        localAddr,
-        peerAddr,
-        nullptr,
-        std::move(codec),
-        tinfo,
-        infoCallback),
-    maxVirtualPriorityLevel_(priorityMapFactory ? 0 : maxVirtualPri),
-    priorityMapFactory_(priorityMapFactory) {
+          std::shared_ptr<const PriorityMapFactory>())
+      : HTTPSession(timeout,
+                    std::move(sock),
+                    localAddr,
+                    peerAddr,
+                    nullptr,
+                    std::move(codec),
+                    tinfo,
+                    infoCallback),
+        maxVirtualPriorityLevel_(priorityMapFactory ? 0 : maxVirtualPri),
+        priorityMapFactory_(priorityMapFactory) {
     if (sock_) {
       auto asyncSocket = sock_->getUnderlyingTransport<folly::AsyncSocket>();
       if (asyncSocket) {
@@ -73,17 +71,16 @@ class HTTPUpstreamSession final: public HTTPSession {
       InfoCallback* infoCallback,
       uint8_t maxVirtualPri = 0,
       std::shared_ptr<const PriorityMapFactory> priorityMapFactory =
-          std::shared_ptr<const PriorityMapFactory>()) :
-    HTTPUpstreamSession(
-        WheelTimerInstance(timeout),
-        std::move(sock),
-        localAddr,
-        peerAddr,
-        std::move(codec),
-        tinfo,
-        infoCallback,
-        maxVirtualPri,
-        priorityMapFactory) {
+          std::shared_ptr<const PriorityMapFactory>())
+      : HTTPUpstreamSession(WheelTimerInstance(timeout),
+                            std::move(sock),
+                            localAddr,
+                            peerAddr,
+                            std::move(codec),
+                            tinfo,
+                            infoCallback,
+                            maxVirtualPri,
+                            priorityMapFactory) {
   }
 
   using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
@@ -98,7 +95,7 @@ class HTTPUpstreamSession final: public HTTPSession {
                           HeaderCodec::Stats* headerCodecStats,
                           HTTPSessionController* controller) override;
 
-  void detachThreadLocals(bool detachSSLContext=false) override;
+  void detachThreadLocals(bool detachSSLContext = false) override;
 
   void startNow() override;
 
@@ -136,13 +133,13 @@ class HTTPUpstreamSession final: public HTTPSession {
     HTTPSession::drain();
   }
 
- virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
-     uint8_t level) override {
-   if (!priorityAdapter_) {
-     return HTTPSession::getHTTPPriority(level);
-   }
-   return priorityAdapter_->getHTTPPriority(level);
- }
+  virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+      uint8_t level) override {
+    if (!priorityAdapter_) {
+      return HTTPSession::getHTTPPriority(level);
+    }
+    return priorityAdapter_->getHTTPPriority(level);
+  }
 
  private:
   ~HTTPUpstreamSession() override;
@@ -150,21 +147,22 @@ class HTTPUpstreamSession final: public HTTPSession {
   /**
    * Called by onHeadersComplete(). Currently a no-op for upstream.
    */
-  void setupOnHeadersComplete(
-      HTTPTransaction* /* txn */, HTTPMessage* /* msg */) override {}
+  void setupOnHeadersComplete(HTTPTransaction* /* txn */,
+                              HTTPMessage* /* msg */) override {
+  }
 
   /**
    * Called by transactionTimeout() if the transaction has no handler.
    */
   HTTPTransaction::Handler* getTransactionTimeoutHandler(
-    HTTPTransaction* txn) override;
+      HTTPTransaction* txn) override;
 
   bool allTransactionsStarted() const override;
 
-  bool onNativeProtocolUpgrade(
-    HTTPCodec::StreamID streamID, CodecProtocol protocol,
-    const std::string& protocolString,
-    HTTPMessage& msg) override;
+  bool onNativeProtocolUpgrade(HTTPCodec::StreamID streamID,
+                               CodecProtocol protocol,
+                               const std::string& protocolString,
+                               HTTPMessage& msg) override;
 
   void maybeAttachSSLContext(folly::SSLContextPtr sslContext) const;
   void maybeDetachSSLContext() const;
@@ -175,4 +173,4 @@ class HTTPUpstreamSession final: public HTTPSession {
   std::unique_ptr<PriorityAdapter> priorityAdapter_;
 };
 
-} // proxygen
+} // namespace proxygen

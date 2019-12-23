@@ -1,16 +1,15 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
+#include <proxygen/httpserver/samples/echo/EchoHandler.h>
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/httpserver/Mocks.h>
-#include <proxygen/httpserver/samples/echo/EchoHandler.h>
 #include <proxygen/httpserver/samples/echo/EchoStats.h>
 
 using namespace EchoService;
@@ -51,8 +50,8 @@ TEST_F(EchoHandlerFixture, OnProperRequestSendsResponse) {
   EXPECT_CALL(stats, getRequestCount()).WillOnce(Return(5));
 
   HTTPMessage response;
-  EXPECT_CALL(*responseHandler, sendHeaders(_)).WillOnce(
-      DoAll(SaveArg<0>(&response), Return()));
+  EXPECT_CALL(*responseHandler, sendHeaders(_))
+      .WillOnce(DoAll(SaveArg<0>(&response), Return()));
   EXPECT_CALL(*responseHandler, sendEOM()).WillOnce(Return());
 
   // Since we know we dont touch request, its ok to pass `nullptr` here.
@@ -71,15 +70,14 @@ TEST_F(EchoHandlerFixture, ReplaysBodyProperly) {
   HTTPMessage response;
   folly::fbstring body;
 
-  EXPECT_CALL(*responseHandler, sendHeaders(_)).WillOnce(
-      DoAll(SaveArg<0>(&response), Return()));
+  EXPECT_CALL(*responseHandler, sendHeaders(_))
+      .WillOnce(DoAll(SaveArg<0>(&response), Return()));
 
-  EXPECT_CALL(*responseHandler, sendBody(_)).WillRepeatedly(
-      DoAll(
-          Invoke([&] (std::shared_ptr<folly::IOBuf> b) {
-            body += b->moveToFbString();
-          }),
-          Return()));
+  EXPECT_CALL(*responseHandler, sendBody(_))
+      .WillRepeatedly(DoAll(Invoke([&](std::shared_ptr<folly::IOBuf> b) {
+                              body += b->moveToFbString();
+                            }),
+                            Return()));
 
   EXPECT_CALL(*responseHandler, sendEOM()).WillOnce(Return());
 

@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/httpserver/HTTPServer.h>
 #include <boost/thread.hpp>
 #include <folly/FileUtil.h>
@@ -26,13 +25,10 @@
 using namespace folly;
 using namespace folly::ssl;
 using namespace proxygen;
-using namespace testing;
 using namespace CurlService;
 
-using folly::AsyncSSLSocket;
 using folly::AsyncServerSocket;
 using folly::EventBaseManager;
-using folly::SSLContext;
 using folly::SSLContext;
 using folly::SocketAddress;
 
@@ -104,7 +100,7 @@ TEST(MultiBind, HandlesListenFailures) {
   // to listen on a FD that another socket is listening on fails.
   try {
     socket->listen(1024);
-  } catch (const std::exception& ex) {
+  } catch (const std::exception&) {
     return;
   }
 
@@ -566,7 +562,7 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
   serverSocket->bind(0);
   try {
     serverSocket->bind(1024);
-  } catch (const std::exception& ex) {
+  } catch (const std::exception&) {
     // This is fine because we are trying to bind to multiple ports
   }
 

@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/portability/GTest.h>
@@ -111,10 +110,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void onMessageBegin(HTTPCodec::StreamID /*stream*/, HTTPMessage*) override {
     messageBegin++;
   }
-  void onPushMessageBegin(HTTPCodec::StreamID /*stream*/,
+  void onPushMessageBegin(HTTPCodec::StreamID pushPromiseId,
                           HTTPCodec::StreamID assocStream,
                           HTTPMessage*) override {
     messageBegin++;
+    pushId = pushPromiseId;
     assocStreamId = assocStream;
   }
   void onExMessageBegin(HTTPCodec::StreamID /*stream*/,
@@ -137,7 +137,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     bodyCalls++;
     paddingBytes += padding;
     bodyLength += chain->computeChainDataLength();
-    data.append(std::move(chain));
+    data_.append(std::move(chain));
   }
   void onChunkHeader(HTTPCodec::StreamID /*stream*/,
                      size_t /*length*/) override {
@@ -187,15 +187,15 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
                 std::unique_ptr<folly::IOBuf> debugData) override {
     ++goaways;
     goawayStreamIds.emplace_back(lastStreamId);
-    data.append(std::move(debugData));
+    data_.append(std::move(debugData));
   }
 
-  void onPingRequest(uint64_t uniqueID) override {
-    recvPingRequest = uniqueID;
+  void onPingRequest(uint64_t data) override {
+    recvPingRequest = data;
   }
 
-  void onPingReply(uint64_t uniqueID) override {
-    recvPingReply = uniqueID;
+  void onPingReply(uint64_t data) override {
+    recvPingReply = data;
   }
 
   void onPriority(HTTPCodec::StreamID /*streamID*/,
@@ -228,22 +228,25 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
       uint16_t requestId, std::unique_ptr<folly::IOBuf> authRequest) override {
     certificateRequests++;
     lastCertRequestId = requestId;
-    data.append(std::move(authRequest));
+    data_.append(std::move(authRequest));
   }
 
   void onCertificate(uint16_t certId,
                      std::unique_ptr<folly::IOBuf> authenticator) override {
     certificates++;
     lastCertId = certId;
-    data.append(std::move(authenticator));
+    data_.append(std::move(authenticator));
   }
 
   bool onNativeProtocolUpgrade(HTTPCodec::StreamID,
                                CodecProtocol,
                                const std::string&,
                                HTTPMessage&) override {
-     return true;
+    return true;
   }
+
+  MOCK_METHOD2(onBodyExpired, void(uint64_t, uint64_t));
+  MOCK_METHOD1(onBodyRejected, void(uint64_t));
 
   uint32_t numOutgoingStreams() const override {
     return 0;
@@ -299,6 +302,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void reset() {
     headersCompleteId = 0;
     assocStreamId = 0;
+    pushId = 0;
     controlStreamId = 0;
     isUnidirectional = false;
     messageBegin = 0;
@@ -328,7 +332,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     headerFrames = 0;
     priority = HTTPMessage::HTTPPriority(0, false, 0);
     windowUpdates.clear();
-    data.move();
+    data_.move();
     msg.reset();
     lastParseError.reset();
     lastErrorCode = ErrorCode::NO_ERROR;
@@ -338,6 +342,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     VLOG(verbosity) << "Dumping HTTP codec callback counters";
     VLOG(verbosity) << "headersCompleteId: " << headersCompleteId;
     VLOG(verbosity) << "assocStreamId: " << assocStreamId;
+    VLOG(verbosity) << "pushId: " << pushId;
     VLOG(verbosity) << "controlStreamId: " << controlStreamId;
     VLOG(verbosity) << "unidirectional: " << isUnidirectional;
     VLOG(verbosity) << "messageBegin: " << messageBegin;
@@ -368,6 +373,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
 
   HTTPCodec::StreamID headersCompleteId{0};
   HTTPCodec::StreamID assocStreamId{0};
+  HTTPCodec::StreamID pushId{0};
   HTTPCodec::StreamID controlStreamId{0};
   bool isUnidirectional{false};
   HTTPCodec::StreamID sessionStreamId{0};
@@ -399,7 +405,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint32_t headerFrames{0};
   HTTPMessage::HTTPPriority priority{0, false, 0};
   std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t> > windowUpdates;
-  folly::IOBufQueue data;
+  folly::IOBufQueue data_;
 
   std::unique_ptr<HTTPMessage> msg;
   std::unique_ptr<HTTPException> lastParseError;

@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <proxygen/lib/http/session/HTTPSessionController.h>
@@ -40,28 +39,27 @@ class SimpleController : public HTTPSessionController {
    * error contains specific information about what went wrong
    */
   HTTPTransactionHandler* getParseErrorHandler(
-    HTTPTransaction* txn,
-    const HTTPException& error,
-    const folly::SocketAddress& localAddress) override;
+      HTTPTransaction* txn,
+      const HTTPException& error,
+      const folly::SocketAddress& localAddress) override;
 
   /**
    * Will be invoked when HTTPSession times out parsing a new request.
    */
   HTTPTransactionHandler* getTransactionTimeoutHandler(
-    HTTPTransaction* txn,
-    const folly::SocketAddress& localAddress) override;
+      HTTPTransaction* txn, const folly::SocketAddress& localAddress) override;
 
   void attachSession(HTTPSessionBase*) override;
   void detachSession(const HTTPSessionBase*) override;
 
   std::chrono::milliseconds getGracefulShutdownTimeout() const override;
+
  protected:
-  HTTPTransactionHandler* createErrorHandler(
-      uint32_t statusCode,
-      const std::string& statusMessage,
-      const HTTPErrorPage* errorPage);
+  HTTPTransactionHandler* createErrorHandler(uint32_t statusCode,
+                                             const std::string& statusMessage,
+                                             const HTTPErrorPage* errorPage);
 
   HTTPSessionAcceptor* const acceptor_{nullptr};
 };
 
-}
+} // namespace proxygen

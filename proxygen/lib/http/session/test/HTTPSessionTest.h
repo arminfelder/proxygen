@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <folly/Memory.h>
@@ -18,28 +17,25 @@
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 
 template <class MyCodec, class Version>
-typename std::enable_if<
-  std::is_enum<Version>::value,
-  std::unique_ptr<MyCodec> >::type
+typename std::enable_if<std::is_enum<Version>::value,
+                        std::unique_ptr<MyCodec>>::type
 makeClientCodec(Version version) {
-  return std::make_unique<MyCodec>(
-    proxygen::TransportDirection::UPSTREAM, version);
+  return std::make_unique<MyCodec>(proxygen::TransportDirection::UPSTREAM,
+                                   version);
 }
 
 template <class MyCodec, class Version>
 typename std::enable_if<std::is_same<MyCodec, proxygen::HTTP1xCodec>::value,
                         std::unique_ptr<MyCodec>>::type
 makeClientCodec(Version /*version*/) {
-  return std::make_unique<MyCodec>(
-    proxygen::TransportDirection::UPSTREAM);
+  return std::make_unique<MyCodec>(proxygen::TransportDirection::UPSTREAM);
 }
 
 template <class MyCodec, class Version>
 typename std::enable_if<std::is_same<MyCodec, proxygen::HTTP2Codec>::value,
                         std::unique_ptr<MyCodec>>::type
 makeClientCodec(Version /*version*/) {
-  return std::make_unique<MyCodec>(
-    proxygen::TransportDirection::UPSTREAM);
+  return std::make_unique<MyCodec>(proxygen::TransportDirection::UPSTREAM);
 }
 
 template <class MyCodec, class Version>
@@ -50,29 +46,25 @@ makeClientCodec(Version /*version*/) {
 }
 
 template <class MyCodec, class Version>
-typename std::enable_if<
-  std::is_enum<Version>::value,
-  std::unique_ptr<MyCodec> >::type
+typename std::enable_if<std::is_enum<Version>::value,
+                        std::unique_ptr<MyCodec>>::type
 makeServerCodec(Version version) {
-  return std::make_unique<MyCodec>(
-    proxygen::TransportDirection::DOWNSTREAM,
-    (Version)version);
+  return std::make_unique<MyCodec>(proxygen::TransportDirection::DOWNSTREAM,
+                                   (Version)version);
 }
 
 template <class MyCodec, class Version>
 typename std::enable_if<std::is_same<MyCodec, proxygen::HTTP1xCodec>::value,
                         std::unique_ptr<MyCodec>>::type
 makeServerCodec(Version /*version*/) {
-  return std::make_unique<MyCodec>(
-    proxygen::TransportDirection::DOWNSTREAM);
+  return std::make_unique<MyCodec>(proxygen::TransportDirection::DOWNSTREAM);
 }
 
 template <class MyCodec, class Version>
 typename std::enable_if<std::is_same<MyCodec, proxygen::HTTP2Codec>::value,
                         std::unique_ptr<MyCodec>>::type
 makeServerCodec(Version /*version*/) {
-  return std::make_unique<MyCodec>(
-    proxygen::TransportDirection::DOWNSTREAM);
+  return std::make_unique<MyCodec>(proxygen::TransportDirection::DOWNSTREAM);
 }
 
 template <class MyCodec, class Version>

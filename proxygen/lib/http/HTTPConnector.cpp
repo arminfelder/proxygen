@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #include <proxygen/lib/http/HTTPConnector.h>
 
 #include <wangle/ssl/SSLUtil.h>
@@ -118,10 +117,12 @@ void HTTPConnector::connectSuccess() noexcept {
   socket_->getPeerAddress(&peerAddress);
 
   std::unique_ptr<HTTPCodec> codec;
-
+  std::string protoCopy;
+  std::string* proto{&protoCopy};
   transportInfo_.acceptTime = getCurrentTime();
   if (transportInfo_.secure) {
-    AsyncSSLSocket* sslSocket = socket_->getUnderlyingTransport<AsyncSSLSocket>();
+    AsyncSSLSocket* sslSocket =
+      socket_->getUnderlyingTransport<AsyncSSLSocket>();
 
     if (sslSocket) {
       transportInfo_.appProtocol =
@@ -133,11 +134,24 @@ void HTTPConnector::connectSuccess() noexcept {
       transportInfo_.sslVersion = sslSocket->getSSLVersion();
       transportInfo_.sslResume = wangle::SSLUtil::getResumeState(sslSocket);
     }
-    codec = httpCodecFactory_->getCodec(socket_->getApplicationProtocol(),
-                                        TransportDirection::UPSTREAM, true);
+
+    protoCopy = socket_->getApplicationProtocol();
   } else {
-    codec = httpCodecFactory_->getCodec(plaintextProtocol_,
-                                        TransportDirection::UPSTREAM, false);
+    proto = &plaintextProtocol_;
+  }
+
+  CHECK(proto);
+  codec = httpCodecFactory_->getCodec(*proto,
+                                      TransportDirection::UPSTREAM,
+                                      transportInfo_.secure);
+
+  if (!codec) {
+    AsyncSocketException ex(
+      AsyncSocketException::INTERNAL_ERROR,
+      folly::to<string>("HTTPCodecFactory failed to create codec for proto=",
+                        *proto));
+    connectErr(ex);
+    return;
   }
 
   HTTPUpstreamSession* session = new HTTPUpstreamSession(

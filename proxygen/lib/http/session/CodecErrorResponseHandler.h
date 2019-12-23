@@ -1,12 +1,11 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ * All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
+
 #pragma once
 
 #include <proxygen/lib/http/session/HTTPTransaction.h>
@@ -15,9 +14,8 @@ namespace proxygen {
 
 class HTTPErrorPage;
 
-class CodecErrorResponseHandler:
-  public HTTPTransaction::Handler {
-public:
+class CodecErrorResponseHandler : public HTTPTransaction::Handler {
+ public:
   explicit CodecErrorResponseHandler(ErrorCode statusCode);
 
   // HTTPTransaction::Handler methods
@@ -30,13 +28,13 @@ public:
   void onUpgrade(UpgradeProtocol protocol) noexcept override;
   void onError(const HTTPException& error) noexcept override;
   // These are no-ops since the error response is already in memory
-  void onEgressPaused() noexcept override {};
-  void onEgressResumed() noexcept override {};
+  void onEgressPaused() noexcept override {}
+  void onEgressResumed() noexcept override {}
 
-private:
- ~CodecErrorResponseHandler() override;
+ private:
+  ~CodecErrorResponseHandler() override;
 
   HTTPTransaction* txn_;
 };
 
-} // proxygen
+} // namespace proxygen
